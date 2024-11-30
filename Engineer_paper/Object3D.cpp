@@ -1,33 +1,114 @@
 #include "Object3D.h"
-
-
-//float* Object3D::get_vertices_to_render() {
-//	
-//};
 	
-Object3D::Object3D(std::string filename) {
-	std::ifstream import_file(filename);
-	std::string line = "";
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices) {
+    this->vertices = vertices;
+    this->indices = indices;
 
-	while (!import_file.eof()) {
-		getline(import_file, line);
-		if (line[0] == 'v') {
-			get_vertices(line);
-		}
-	}
+    setup_mesh();
 }
 
-void Object3D::get_vertices(std::string line) {
-	int occurences = 0;
-	int index = 0;
-	for (int i = 0; i < line.length(); i++) {
-		if (line[i] == ' ') {
-			if (occurences > 0) {
-				vertices.push_back(stof(line.substr(index, i - index)));
-			}
+void Mesh::setup_mesh() {
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
 
-			index = i;
-			occurences++;
-		}
-	}
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int),
+        &indices[0], GL_STATIC_DRAW);
+
+    // vertex positions
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    // vertex normals
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+
+    glBindVertexArray(0);
 }
+
+void Mesh::draw() {
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+//Mesh::~Mesh() {
+//    glDeleteVertexArrays(1, &VAO);
+//    glDeleteBuffers(1, &VBO);
+//    glDeleteBuffers(1, &EBO);
+//}
+
+//----------------------------------------------------------------------------------------------------------------------------
+
+void Object3D::draw() {
+    for (unsigned int i = 0; i < meshes.size(); i++)
+        meshes[i].draw();
+}
+
+void Object3D::load_model(std::string path) {
+    Assimp::Importer importer;
+    const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+    {
+       std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+        return;
+    }
+    directory = path.substr(0, path.find_last_of('/'));
+
+    process_node(scene->mRootNode, scene);
+}
+
+void Object3D::process_node(aiNode* node, const aiScene* scene)
+{
+    // process all the node's meshes (if any)
+    for (unsigned int i = 0; i < node->mNumMeshes; i++)
+    {
+        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+        meshes.push_back(process_mesh(mesh, scene));
+    }
+    // then do the same for each of its children
+    for (unsigned int i = 0; i < node->mNumChildren; i++)
+    {
+        process_node(node->mChildren[i], scene);
+    }
+}
+
+Mesh Object3D::process_mesh(aiMesh* mesh, const aiScene* scene) {
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+
+    for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+    {
+        Vertex vertex;
+        // process vertex positions, normals and texture coordinates
+        glm::vec3 vector;
+        vector.x = mesh->mVertices[i].x;
+        vector.y = mesh->mVertices[i].y;
+        vector.z = mesh->mVertices[i].z;
+        vertex.Position = vector;
+        
+
+        vector.x = mesh->mNormals[i].x;
+        vector.y = mesh->mNormals[i].y;
+        vector.z = mesh->mNormals[i].z;
+        vertex.Normal = vector;
+
+        vertices.push_back(vertex);
+    }
+    // process indices
+    for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+    {
+        aiFace face = mesh->mFaces[i];
+        for (unsigned int j = 0; j < face.mNumIndices; j++)
+            indices.push_back(face.mIndices[j]);
+    }
+
+    return Mesh(vertices, indices);
+}
+

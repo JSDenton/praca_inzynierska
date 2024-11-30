@@ -6,6 +6,27 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include "Shader.h"
+#include "Object3D.h"
+#include "Camera.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+unsigned int WINDOW_HEIGHT = 800;
+unsigned int WINDOW_WIDTH = 1400;
+unsigned int FOV = 90;
+
+
+// camera
+Camera camera(glm::vec3(0.0f, 0.0f, 300.0f));
+float lastX = WINDOW_WIDTH / 2.0f;
+float lastY = WINDOW_HEIGHT / 2.0f;
+bool firstMouse = true;
+
+// timing
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -17,55 +38,47 @@ void processInput(GLFWwindow* window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		camera.ProcessKeyboard(FORWARD, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		camera.ProcessKeyboard(BACKWARD, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		camera.ProcessKeyboard(LEFT, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		camera.ProcessKeyboard(RIGHT, deltaTime);
 }
 
-unsigned int import_shader(std::string filename, std::string type) {
-	std::ifstream shader_file(filename);
-	std::string text = "", line = "";
-	while (getline(shader_file, line))
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+{
+	float xpos = static_cast<float>(xposIn);
+	float ypos = static_cast<float>(yposIn);
+
+	if (firstMouse)
 	{
-		text += line + "\n";
-	}
-	const char* shader_source = text.c_str();
-	unsigned int shader;
-	if (type == "vertex")
-		shader = glCreateShader(GL_VERTEX_SHADER);
-	else
-		shader = glCreateShader(GL_FRAGMENT_SHADER);
-
-	glShaderSource(shader, 1, &shader_source, NULL);
-	glCompileShader(shader);
-
-	int  success;
-	char infoLog[512];
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-
-	if (!success)
-	{
-		glGetShaderInfoLog(shader, 512, NULL, infoLog);
-		if (type == "vertex")
-			std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-		else
-			std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
 	}
 
-	return shader;
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+	lastX = xpos;
+	lastY = ypos;
+
+	camera.ProcessMouseMovement(xoffset, yoffset, true);
 }
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+// ----------------------------------------------------------------------
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
 
 int main() {
-	//TEST DATA
-	float vertices[] = {
-		 0.5f,  0.5f, 0.0f, 1.0f, 0.0f, 0.0f,  // top right
-		 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,  // bottom right
-		-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, // bottom left
-		-0.5f,  0.5f, 0.0f, 1.0f, 1.0f, 1.0f  // top left 
-	};
-	unsigned int indices[] = {  // note that we start from 0!
-		0, 1, 3,   // first triangle
-		1, 2, 3    // second triangle
-	};
-
-
 	//----------INITIATE GLFW
 	if (!glfwInit())
 	{
@@ -78,7 +91,7 @@ int main() {
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	//----------INITIATE WINDOW
-	GLFWwindow* window = glfwCreateWindow(1400, 787, "ProjektInzynierski", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "ProjektInzynierski", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
@@ -94,43 +107,21 @@ int main() {
 		return -1;
 	}
 
-	glViewport(0, 0, 1200, 800);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-	//---------BUFFERS
-	unsigned int VAO, VBO, EBO;
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	//---------SHADERS
-	unsigned int vertex_shader = import_shader("./vertex_shader.glsl", "vertex");
-	unsigned int fragment_shader = import_shader("./fragment_shader.glsl", "fragment");
-	unsigned int shader_program = glCreateProgram();
-	glAttachShader(shader_program, vertex_shader);
-	glAttachShader(shader_program, fragment_shader);
-	glLinkProgram(shader_program);
-	int success; char infoLog[512];
-	glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
-	if (!success) {
-		glGetProgramInfoLog(shader_program, 512, NULL, infoLog);
-		std::cout << "ERROR::SHADER::PROGRAM::COMPILATION_FAILED\n" << infoLog << std::endl;
-	}
+	Shader shaders("./vertex_shader.vs", "./fragment_shader.fs");
 
-	glUseProgram(shader_program);
+	//---------PRE_RENDER + MATRICES
 
-	//---------SHADER_DATA
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glEnable(GL_DEPTH_TEST);
 
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetScrollCallback(window, scroll_callback);
 
-	//---------PRE_RENDER
-
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	Object3D sphere("resources/sphere.obj");
 
 
 	//---------RENDER LOOP
@@ -140,34 +131,27 @@ int main() {
 		processInput(window);
 
 		//render
-
-
 		glClearColor(.0f, .0f, .0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		shaders.use();
 
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0); //render vertices
-		glEnableVertexAttribArray(0);
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1f, 1000.0f);
+		glm::mat4 view = camera.GetViewMatrix();
+		shaders.setMat4("projection", projection);
+		shaders.setMat4("view", view);
 
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float))); //render color
-		glEnableVertexAttribArray(1);
-
-		glUseProgram(shader_program);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-		glDrawElements(GL_TRIANGLES, sizeof(indices) / sizeof(int), GL_UNSIGNED_INT, 0);
+		// render the loaded model
+		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
+		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
+		shaders.setMat4("model", model);
+		sphere.draw();
 
 
 		//end
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
-	glDeleteProgram(shader_program);
-
-	glDeleteShader(vertex_shader);
-	glDeleteShader(fragment_shader);
 
 	glfwTerminate();
 	return 0;
