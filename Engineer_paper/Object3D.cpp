@@ -1,10 +1,26 @@
 #include "Object3D.h"
 	
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices) {
-    this->vertices = vertices;
-    this->indices = indices;
-
+Mesh::Mesh(std::vector<Vertex> vertices_in, std::vector<unsigned int> indices_in, bool copy) {
+    if (copy) {
+        vertices = vertices_in;
+        indices = indices_in;
+    }
+    else {
+        this->vertices = vertices_in;
+        this->indices = indices_in;
+    }
     setup_mesh();
+}
+
+Mesh::Mesh() {
+    ;
+}
+
+void Mesh::update_mesh(Vertex vertex, unsigned int index) {
+    vertices.push_back(vertex);
+    indices.push_back(index);
+    
+    bind_buffers();
 }
 
 void Mesh::setup_mesh() {
@@ -12,6 +28,10 @@ void Mesh::setup_mesh() {
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
+    bind_buffers();
+}
+
+void Mesh::bind_buffers() {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
@@ -34,6 +54,12 @@ void Mesh::setup_mesh() {
 void Mesh::draw() {
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Mesh::draw_photons() {
+    glBindVertexArray(VAO);
+    glDrawElements(GL_LINES_ADJACENCY, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
@@ -109,6 +135,30 @@ Mesh Object3D::process_mesh(aiMesh* mesh, const aiScene* scene) {
             indices.push_back(face.mIndices[j]);
     }
 
-    return Mesh(vertices, indices);
+    return Mesh(vertices, indices, false);
+
 }
 
+std::string Vertex::print() {
+    return std::to_string(Position[0]) + ' ' + std::to_string(Position[1]) + ' ' + std::to_string(Position[2]);
+}
+
+std::string Mesh::print() {
+    std::string final_string = "";
+    for (int i = 0; i < indices.size(); i++) {
+        final_string += "\t" + std::to_string(indices[i]) + ": " + vertices[i].print() + "\n";
+    }
+    return final_string;
+}
+
+void Object3D::print() {
+    std::string final_string = "";
+    for (int i = 0; i < meshes.size(); i++) {
+        final_string += std::to_string(i) + ": " + meshes[i].print() + "\n";
+    }
+    std::cout << final_string;
+}
+
+std::vector<Mesh> Object3D::get_meshes() {
+    return meshes;
+}

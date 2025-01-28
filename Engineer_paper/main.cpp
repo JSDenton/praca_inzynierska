@@ -1,17 +1,22 @@
+#define NUM_THREADS 24
 
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <random>
+#include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include "Shader.h"
 #include "Object3D.h"
 #include "Camera.h"
+#include "Simulation.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <omp.h>
+
 
 unsigned int WINDOW_HEIGHT = 800;
 unsigned int WINDOW_WIDTH = 1400;
@@ -78,7 +83,11 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 }
 
 
-int main() {
+int main() {	
+	omp_set_dynamic(0);
+	omp_set_num_threads(NUM_THREADS);
+	std::srand(std::time(nullptr));
+
 	//----------INITIATE GLFW
 	if (!glfwInit())
 	{
@@ -123,6 +132,12 @@ int main() {
 
 	Object3D sphere("resources/sphere.obj");
 
+	//sphere.print();
+
+	Simulation simulation(sphere);
+
+	
+
 
 	//---------RENDER LOOP
 	while (!glfwWindowShouldClose(window))
@@ -147,6 +162,8 @@ int main() {
 		shaders.setMat4("model", model);
 		sphere.draw();
 
+		simulation.simulate();
+		simulation.draw();
 
 		//end
 		glfwSwapBuffers(window);
