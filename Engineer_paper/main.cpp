@@ -163,7 +163,12 @@ int main() {
 		sphere.draw();
 
 		simulation.simulate();
+		//simulation.model.draw();
 		simulation.draw();
+
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
 
 		//end
 		glfwSwapBuffers(window);

@@ -13,22 +13,24 @@ Cell::Cell() {
 }
 
 Photon::Photon(glm::vec3 dimentions) {
-	location = glm::vec3(dimentions[0]/2, 73.f, dimentions[2]/2); //set starting point in the center (x,z) and max up
+	location = glm::vec3(dimentions[0]/2, 85.f, dimentions[2]/2); //set starting point in the center (x,z) and max up
 	float rand1 = rand();
 	float rand2 = rand();
-	direction = glm::vec3(rand1 / RAND_MAX - 0.5f, -1.0f, rand2 / RAND_MAX - 0.5f);
+	direction = glm::vec3((rand1 / RAND_MAX) - 0.5f, -1.0f, (rand2 / RAND_MAX) - 0.5f);
 	direction = glm::normalize(direction);
 	inside_model = false;
-	inside_model_prev = false;
+	border_passed = 1;
 	out_of_space = false;
 	absorbed = false;
+	reflected = false;
 
 	Vertex vertex;
 	vertex.Position = location;
-	vertex.Normal = direction;
+	vertex.Normal = glm::vec3(0.0f, 0.0f, 1.0f);
 	std::vector<Vertex> vec;
 	vec.push_back(vertex);
 	std::vector<unsigned int>indices;
+	indices.push_back(0);
 	indices.push_back(0);
 	mesh = Mesh(vec, indices, true);
 }
@@ -37,57 +39,16 @@ void Photon::save() {
 	locations_historical.push_back(location);
 	Vertex vertex;
 	vertex.Position = location;
-	vertex.Normal = direction;
-	mesh.update_mesh(vertex, mesh.indices.size());
+	if(inside_model)
+		vertex.Normal = glm::vec3(1.0f, 0.0f, 0.0f);
+	else
+		vertex.Normal = glm::vec3(0.0f, 0.0f, 1.0f);
+	mesh.update_mesh(vertex, mesh.indices.back());
 }
 
-Material::Material() { //reflection < absorbtion < transmittance
-	reflection = 0.1f;
-	transmittance = 0.95f;
-	absorption = 0.15f;
-	/*float n1 = rand();
-	n1 /= RAND_MAX;
-	float n2 = rand();
-	n2 /= RAND_MAX;
-	float n3 = rand();
-	n3 /= RAND_MAX;
-	if (n1 < n2 && n1 < n3) {
-		reflection = n1;
-	}
-	else if (n2 < n1 && n2 < n3) {
-		reflection = n2;
-	}
-	else if (n3 < n2 && n3 < n1) {
-		reflection = n3;
-	}
-
-	if (n1 > n2 && n1 > n3) {
-		transmittance = n1;
-		if (reflection == n2) {
-			absorption = n3;
-		}
-		else {
-			absorption = n2;
-		}
-	}
-	else if (n3 > n2 && n3 > n1) {
-		transmittance = n3;
-		if (reflection == n2) {
-			absorption = n1;
-		}
-		else {
-			absorption = n2;
-		}
-	}
-	else if (n2 > n1 && n2 > n3) {
-		transmittance = n2;
-		if (reflection == n1) {
-			absorption = n3;
-		}
-		else {
-			absorption = n1;
-		}
-	}*/
+Material::Material() { //reflection < absorbtion < transmittance = (0, n1, n2, 1)
+	n1 = 0.2f;
+	n2 = 0.6f;
 };
 
 
@@ -148,7 +109,8 @@ Simulation::Simulation(Object3D model_in) {
 	max_dimentions = glm::vec3(x.first + (x_diff * delta_space), y.first + (y_diff * delta_space), z.first + (z_diff * delta_space));
 	min_dimentions = glm::vec3(x_shift, y_shift, z_shift);
 	
-	std::cout << "INIT CELLS" << std::endl;
+	std::cout << "INIT CELLS START" << std::endl;
+	clock_t t1 = clock();
 
 #pragma omp parallel for
 	for (int i = 0; i < CELLS_COUNT; i++) {
@@ -163,18 +125,18 @@ Simulation::Simulation(Object3D model_in) {
 			}
 		}
 	}
+	clock_t t2 = clock();
 
-
-	std::cout << "INIT CELLS END" << std::endl;
+	std::cout << "INIT CELLS END - " << (float)(t2- t1)/CLOCKS_PER_SEC << "sec" << std::endl;
 
 	std::vector<Mesh> meshes = model.get_meshes();
 
 	std::cout << "BIND CELLS" << std::endl;
 
-	std::cout << glm::length(glm::vec3(1, 1, 1) - glm::vec3(0, 0, 0)) << std::endl;
+	t1 = clock();
 	
 	//decide if a cell is intersecting with model boundary
-#pragma omp parallel for
+//#pragma omp parallel for
 	for (int m = 0; m < meshes.size(); m++) {
 		Mesh mesh = meshes[m];
 		//take every triangle of the model and check if ray intersects with it
@@ -191,11 +153,11 @@ Simulation::Simulation(Object3D model_in) {
 			glm::vec3 normal_to_side = glm::cross(l1, l2);
 
 			//dividing a vector to evenly-sized portions
-			short n1 = std::round(glm::length(v2 - v1) / (cell_size*0.5));
-			short n2 = std::round(glm::length(v3 - v2) / (cell_size*0.5));
-			short n3 = std::round(glm::length(v3 - v1) / (cell_size*0.5));
+			short n1 = std::round(glm::length(l1) / (cell_size));
+			short n2 = std::round(glm::length(l2) / (cell_size));
+			short n3 = std::round(glm::length(l3) / (cell_size));
 
-			
+			//std::cout << n1 << " " << n2 << " " << n3 << " " << std::endl;
 
 			//iterate through every triangle side
 			//v1->v2 (l1)
@@ -206,7 +168,7 @@ Simulation::Simulation(Object3D model_in) {
 				int k_temp = std::floor(((i1 * l1[2] / n1) + (v1[2] - z_shift)) / cell_size);
 
 				cells[i_temp][j_temp][k_temp].border = true;				
-				cells[i_temp][j_temp][k_temp].normal = normal_to_side;		
+				cells[i_temp][j_temp][k_temp].normal = normal_to_side;	 				
 			}
 			//v2->v3 (l2)
 			for (int i1 = 0; i1 < n2; i1++) {
@@ -216,27 +178,32 @@ Simulation::Simulation(Object3D model_in) {
 				int k_temp = std::floor(((i1 * l2[2] / n2) + (v2[2] - z_shift)) / cell_size);
 
 				cells[i_temp][j_temp][k_temp].border = true;
-				cells[i_temp][j_temp][k_temp].normal = normal_to_side;
+				cells[i_temp][j_temp][k_temp].normal = normal_to_side;				
 			}
 			//v1->v3 (l3)
 			for (int i1 = 0; i1 < n3; i1++) {
 				//find index of cell
-				int i_temp = std::floor(((i1 * l3[0] / n3) + (v3[0] - x_shift)) / cell_size);
-				int j_temp = std::floor(((i1 * l3[1] / n3) + (v3[1] - y_shift)) / cell_size);
-				int k_temp = std::floor(((i1 * l3[2] / n3) + (v3[2] - z_shift)) / cell_size);
+				int i_temp = std::floor(((i1 * l3[0] / n3) + (v1[0] - x_shift)) / cell_size);
+				int j_temp = std::floor(((i1 * l3[1] / n3) + (v1[1] - y_shift)) / cell_size);
+				int k_temp = std::floor(((i1 * l3[2] / n3) + (v1[2] - z_shift)) / cell_size);
 
 				cells[i_temp][j_temp][k_temp].border = true;
-				cells[i_temp][j_temp][k_temp].normal = normal_to_side;
+				cells[i_temp][j_temp][k_temp].normal = normal_to_side;				
 			}
 		}
 	}
-	std::cout << "BIND CELLS END" << std::endl;
+	t2 = clock();
+
+	std::cout << "BIND CELLS END - " << (float)(t2 - t1) / CLOCKS_PER_SEC << "sec" << std::endl;
+
 	std::cout << "PHOTONS INIT" << std::endl;
+	t1 = clock();
 
 	for (int i = 0; i < PHOTONS_COUNT; i++) {
 		photons.push_back(Photon(max_dimentions + min_dimentions));
 	}
-	std::cout << "PHOTONS INIT END" << std::endl;
+	t2 = clock();
+	std::cout << "PHOTONS INIT END" << (float)(t2 - t1) / CLOCKS_PER_SEC << "sec" << std::endl;
 }
 
 void Simulation::simulate() {
@@ -245,7 +212,7 @@ void Simulation::simulate() {
 		return;
 	}
 	//std::cout << absorbed_photons  << " " <<  out_of_space_photons << std::endl;
-	//#pragma omp parallel for
+	#pragma omp parallel for
 	for	(int i = 0; i < PHOTONS_COUNT; i++) {
 		if (photons[i].absorbed || photons[i].out_of_space) {
 			continue;
@@ -276,49 +243,83 @@ void Simulation::simulate() {
 		glm::vec3 new_angle = photons[i].direction;
 
 
-		if (cells[i1][i2][i3].border || photons[i].inside_model) {
-			if (rand_num < material.absorption && rand_num > material.reflection) { //absorption
-				photons[i].absorbed = true;
-				absorbed_photons++;
+		if (cells[i1][i2][i3].border) {			
+			if (rand_num < material.n1 && !photons[i].inside_model && photons[i].border_passed % 2 != 0 && !photons[i].reflected) { //reflection
+				new_angle = glm::normalize(glm::reflect(photons[i].direction, cells[i1][i2][i3].normal));
+				photons[i].reflected = true;
 			}
-			else if (rand_num > material.absorption){ //transmittance
-				float p = rand();
-				p /= RAND_MAX;
-				float a1 = 6.28 * p; //zenith angle
-				float a2 = 1 / cos(1 - p); //azimuth angle
-				new_angle = glm::vec3(cos(a2), a1, sin(a2));
-				std::cout << new_angle[0] << " " << new_angle[1] << " " << new_angle[2] << std::endl;
+		}
+		else if (photons[i].inside_model) {
+			if (photons[i].scatter_counter == 0) {
+				if (rand_num < material.n2 && rand_num > material.n1) { //absorption
+					photons[i].absorbed = true;
+					absorbed_photons++;
+				}
+				else if (rand_num > material.n2) { //transmittance
+					float p1 = rand();
+					float p2 = rand();
+					float p3 = rand();
+					p1 /= RAND_MAX;
+					p2 /= RAND_MAX;
+					p3 /= RAND_MAX;
+					//new_angle[1] /= new_angle.length();
+					new_angle = glm::normalize(glm::vec3(p1 - 0.5f, p2 - 0.5f, p3 - 0.5f));
+					//std::cout << new_angle[0] << " " << new_angle[1] << " " << new_angle[2] << std::endl;
+				}
+				photons[i].scatter_counter = scatter_counter_const;
 			}
-			else if (rand_num < material.reflection && cells[i1][i2][i3].border && !photons[i].inside_model) { //reflection
-				new_angle = glm::reflect(photons[i].direction, cells[i1][i2][i3].normal);
+			else {
+				photons[i].scatter_counter--;
 			}
 		}
 
-		photons[i].direction = glm::normalize(new_angle);
+		photons[i].direction = new_angle;
 
-		if (cells[i1][i2][i3].border && photons[i].inside_model_prev) {
-			continue;
-		}
-		else if (cells[i1][i2][i3].border && photons[i].inside_model) {
-			photons[i].inside_model_prev = true;
-		}
-		else if (cells[i1][i2][i3].border) {
-			photons[i].inside_model = true;
-		}
-		else if (!cells[i1][i2][i3].border && photons[i].inside_model) {
-			photons[i].inside_model = false;
-		}
-		else if (!cells[i1][i2][i3].border && photons[i].inside_model_prev) {
-			photons[i].inside_model_prev = false;
-		}
 
-		
+		//boundary of model
+		if (cells[i1][i2][i3].border) {			
+			if (photons[i].border_passed % 2 == 1) { //getting on border
+				photons[i].border_passed++;
+			}
+			if (photons[i].border_margin != border_margin_const) {
+				photons[i].border_margin = border_margin_const;
+			}
+			
+			//photons[i].inside_model = true;
+		}
+		else {
+			if (photons[i].border_passed % 3 == 0 && photons[i].reflected) { //case of reflection			
+				photons[i].reflected = false;
+				photons[i].border_passed = 1;
+			}
+			else if (photons[i].border_passed % 4 == 0 ) { //getting outside model
+				if (photons[i].border_margin == 0) {
+					photons[i].inside_model = false;
+					photons[i].border_passed++;
+					photons[i].border_margin = border_margin_const;
+				}
+				else {
+					photons[i].border_margin--;
+				}
+			}
+			else if (photons[i].border_passed % 2 == 0 && !photons[i].reflected ) { //leaving border, but still being in the model
+				if (photons[i].border_margin == 0) {
+					photons[i].border_passed++;
+					photons[i].inside_model = true;
+					photons[i].border_margin = border_margin_const;
+				}
+				else {
+					photons[i].border_margin--;
+				}
+			}
+			//photons[i].inside_model = false;
+		}	
 	}
 }
 
 void Simulation::draw() {
 	for (int i = 0; i < PHOTONS_COUNT; i++) {
-		photons[i].mesh.draw();
+		photons[i].mesh.draw_photons();
 	}
 }
 

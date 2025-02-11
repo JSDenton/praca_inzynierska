@@ -19,7 +19,8 @@ Mesh::Mesh() {
 void Mesh::update_mesh(Vertex vertex, unsigned int index) {
     vertices.push_back(vertex);
     indices.push_back(index);
-    
+    indices.push_back(index+1);
+
     bind_buffers();
 }
 
@@ -35,11 +36,11 @@ void Mesh::bind_buffers() {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_DYNAMIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int),
-        &indices[0], GL_STATIC_DRAW);
+        &indices[0], GL_DYNAMIC_DRAW);
 
     // vertex positions
     glEnableVertexAttribArray(0);
@@ -59,7 +60,7 @@ void Mesh::draw() {
 
 void Mesh::draw_photons() {
     glBindVertexArray(VAO);
-    glDrawElements(GL_LINES_ADJACENCY, indices.size(), GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
@@ -123,7 +124,7 @@ Mesh Object3D::process_mesh(aiMesh* mesh, const aiScene* scene) {
         vector.x = mesh->mNormals[i].x;
         vector.y = mesh->mNormals[i].y;
         vector.z = mesh->mNormals[i].z;
-        vertex.Normal = vector;
+        vertex.Normal = glm::vec3(0.f, 1.0f, 0.f);//vector;
 
         vertices.push_back(vertex);
     }
