@@ -9,7 +9,7 @@
 
 #define CELLS_COUNT 500
 
-const unsigned int scatter_counter_const = 20, border_margin_const = 5;
+const unsigned int scatter_counter_const = 100, border_margin_const = 5;
 
 struct Photon {
 	glm::vec3 location, direction;
@@ -41,7 +41,7 @@ struct Material { // (0, n1) - reflection; (n1-n2) - absorption; (n2, 1) - trans
 
 class Simulation
 {
-	const unsigned int PHOTONS_COUNT = 1;
+	const unsigned int PHOTONS_COUNT = 100;
 	//const unsigned int CELLS_COUNT = 1000; //the number of cells IN EVERY DIRECTION (x, y, z)
 	const float CELL_SIZE_COEF = 1.6f; //1.2 means that we want space covered by cells by 20% above what model takes 
 

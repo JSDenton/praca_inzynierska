@@ -14,10 +14,10 @@ Cell::Cell() {
 
 Photon::Photon(glm::vec3 dimentions) {
 	location = glm::vec3(dimentions[0]/2, 85.f, dimentions[2]/2); //set starting point in the center (x,z) and max up
-	float rand1 = rand();
-	float rand2 = rand();
-	//direction = glm::vec3((rand1 / RAND_MAX) - 0.5f, -1.0f, (rand2 / RAND_MAX) - 0.5f);
-	direction = glm::vec3(0.1f, -1.0f, 0.1f);
+	float rand1 = (float)rand();
+	float rand2 = (float)rand();
+	direction = glm::vec3((rand1 / RAND_MAX) - 0.5f, -1.0f, (rand2 / RAND_MAX) - 0.5f);
+	//direction = glm::vec3(0.1f, -1.0f, 0.1f);
 	direction = glm::normalize(direction);
 	inside_model = false;
 	border_passed = 1;
@@ -48,7 +48,7 @@ void Photon::save() {
 }
 
 Material::Material() { //reflection < absorbtion < transmittance = (0, n1, n2, 1)
-	n1 = 0.2f;
+	n1 = 0.01f;
 	n2 = 0.6f;
 };
 
@@ -191,44 +191,21 @@ Simulation::Simulation(Object3D model_in) {
 						float z = (i3 * range_vec[2] / n3) + min[2];
 
 						glm::vec3 p = glm::vec3(x, y, z);
-						/*
-						glm::vec3 diff_vec = (p - v1);
-
-						float distance_from_plane = normal_to_side[0] * diff_vec[0] + normal_to_side[1] * diff_vec[1] + normal_to_side[2] * diff_vec[2];
-
-						if (abs(distance_from_plane) < 0.5f) {
-							counter2++;
-
-							glm::mat4x3 A = { v1, v2, v3, glm::vec3(1.f, 1.f, 1.f) };
-							glm::mat3x4 trans_A = glm::transpose(A);
-							
-
-							glm::vec3 w_vec = (glm::inverse(trans_A * A) * trans_A) * glm::vec4(p, 1.f);
-
-							if (w_vec.x >= 0.f && w_vec.x <= 1.f && w_vec.y >= 0.f && w_vec.y <= 1.f && w_vec.z >= 0.f && w_vec.z <= 1.f) {
-								int i_temp = std::floor((x - x_shift) / cell_size);
-								int j_temp = std::floor((y - y_shift) / cell_size);
-								int k_temp = std::floor((z - z_shift) / cell_size);
-								cells[i_temp][j_temp][k_temp].border = true;
-								cells[i_temp][j_temp][k_temp].normal = normal_to_side;
-								counter++;
-							}
-						}
-						*/
 
 						float V = glm::length((v1 - p) * (glm::cross(v2 - p, v3 - p))); //calculate volume of tetrahedron (v1, v2, v3, p)
-						if (V < 30) {
+						if (V < 500) {
 							float A1 = 0.5f * glm::length(glm::cross(v1 - p, v2 - p));
 							float A2 = 0.5f * glm::length(glm::cross(v1 - p, v3 - p));
 							float A3 = 0.5f * glm::length(glm::cross(v2 - p, v3 - p));
-							float A123 = 0.5f * glm::length(glm::cross(v1 - v2, v1 - v3));
-							if (abs(A123 - (A1 + A2 + A3)) < 5) {
+							float A123 = 0.5f * glm::length(glm::cross(l1, l3));
+							if (abs(A123 - (A1 + A2 + A3)) < 10) {
 								int i_temp = std::floor((x - x_shift) / cell_size);
 								int j_temp = std::floor((y - y_shift) / cell_size);
 								int k_temp = std::floor((z - z_shift) / cell_size);
 								cells[i_temp][j_temp][k_temp].border = true;
 								cells[i_temp][j_temp][k_temp].normal = normal_to_side;
 							}
+							
 						}
 					}
 				}
@@ -281,7 +258,7 @@ void Simulation::simulate() {
 
 		//printf("%f, %f, %f = %d\n", cells[i1][i2][i3].location[0], cells[i1][i2][i3].location[1], cells[i1][i2][i3].location[2], cells[i1][i2][i3].border);
 		
-		float rand_num = rand();
+		float rand_num = (float)rand();
 		rand_num /= RAND_MAX;
 		glm::vec3 new_angle = photons[i].direction;
 
@@ -293,15 +270,15 @@ void Simulation::simulate() {
 			}
 		}
 		else if (photons[i].inside_model) {
-			if (photons[i].scatter_counter == 30) {
+			if (photons[i].scatter_counter == 0) {
 				if (rand_num < material.n2 && rand_num > material.n1) { //absorption
 					photons[i].absorbed = true;
 					absorbed_photons++;
 				}
 				else if (rand_num > material.n2) { //transmittance
-					float p1 = rand();
-					float p2 = rand();
-					float p3 = rand();
+					float p1 = (float)rand();
+					float p2 = (float)rand();
+					float p3 = (float)rand();
 					p1 /= RAND_MAX;
 					p2 /= RAND_MAX;
 					p3 /= RAND_MAX;
