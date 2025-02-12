@@ -16,7 +16,8 @@ Photon::Photon(glm::vec3 dimentions) {
 	location = glm::vec3(dimentions[0]/2, 85.f, dimentions[2]/2); //set starting point in the center (x,z) and max up
 	float rand1 = rand();
 	float rand2 = rand();
-	direction = glm::vec3((rand1 / RAND_MAX) - 0.5f, -1.0f, (rand2 / RAND_MAX) - 0.5f);
+	//direction = glm::vec3((rand1 / RAND_MAX) - 0.5f, -1.0f, (rand2 / RAND_MAX) - 0.5f);
+	direction = glm::vec3(0.1f, -1.0f, 0.1f);
 	direction = glm::normalize(direction);
 	inside_model = false;
 	border_passed = 1;
@@ -136,7 +137,7 @@ Simulation::Simulation(Object3D model_in) {
 	t1 = clock();
 	
 	//decide if a cell is intersecting with model boundary
-//#pragma omp parallel for
+
 	for (int m = 0; m < meshes.size(); m++) {
 		Mesh mesh = meshes[m];
 		//take every triangle of the model and check if ray intersects with it
@@ -150,45 +151,87 @@ Simulation::Simulation(Object3D model_in) {
 			glm::vec3 l2 = v3 - v2;
 			glm::vec3 l3 = v3 - v1;
 
-			glm::vec3 normal_to_side = glm::cross(l1, l2);
+			glm::vec3 normal_to_side = glm::normalize(glm::cross(l1, l2));
 
-			//dividing a vector to evenly-sized portions
-			short n1 = std::round(glm::length(l1) / (cell_size));
-			short n2 = std::round(glm::length(l2) / (cell_size));
-			short n3 = std::round(glm::length(l3) / (cell_size));
+			glm::vec3 min = glm::vec3(FLT_MAX);
+			for (int n = 0; n < 3; n++) {
+				if (v1[n] <= v2[n] && v1[n] <= v3[n])
+					min[n] = v1[n];
+				else if (v2[n] <= v1[n] && v2[n] <= v3[n])
+					min[n] = v2[n];
+				else
+					min[n] = v3[n];
+			}
 
-			//std::cout << n1 << " " << n2 << " " << n3 << " " << std::endl;
+			glm::vec3 max = glm::vec3(FLT_MIN);
+			for (int n = 0; n < 3; n++) {
+				if (v1[n] >= v2[n] && v1[n] >= v3[n])
+					max[n] = v1[n];
+				else if (v2[n] >= v1[n] && v2[n] >= v3[n])
+					max[n] = v2[n];
+				else
+					max[n] = v3[n];
+			}
+						
+			//creating space in which the triangle is in
+			short n1 = std::round(glm::length(max[0] - min[0]) / (cell_size));
+			short n2 = std::round(glm::length(max[1] - min[1]) / (cell_size));
+			short n3 = std::round(glm::length(max[2] - min[2]) / (cell_size));
 
-			//iterate through every triangle side
-			//v1->v2 (l1)
+			glm::vec3 range_vec = max - min;
+
+//#pragma omp parallel for
 			for (int i1 = 0; i1 < n1; i1++) {
-				//find index of cell
-				int i_temp = std::floor(((i1 * l1[0] / n1) + (v1[0] - x_shift)) / cell_size);
-				int j_temp = std::floor(((i1 * l1[1] / n1) + (v1[1] - y_shift)) / cell_size);
-				int k_temp = std::floor(((i1 * l1[2] / n1) + (v1[2] - z_shift)) / cell_size);
+				float x = (i1 * range_vec[0] / n1) + min[0];				
 
-				cells[i_temp][j_temp][k_temp].border = true;				
-				cells[i_temp][j_temp][k_temp].normal = normal_to_side;	 				
-			}
-			//v2->v3 (l2)
-			for (int i1 = 0; i1 < n2; i1++) {
-				//find index of cell
-				int i_temp = std::floor(((i1 * l2[0] / n2) + (v2[0] - x_shift)) / cell_size);
-				int j_temp = std::floor(((i1 * l2[1] / n2) + (v2[1] - y_shift)) / cell_size);
-				int k_temp = std::floor(((i1 * l2[2] / n2) + (v2[2] - z_shift)) / cell_size);
+				for (int i2 = 0; i2 < n2; i2++) {
+					float y = (i2 * range_vec[1] / n2) + min[1];
 
-				cells[i_temp][j_temp][k_temp].border = true;
-				cells[i_temp][j_temp][k_temp].normal = normal_to_side;				
-			}
-			//v1->v3 (l3)
-			for (int i1 = 0; i1 < n3; i1++) {
-				//find index of cell
-				int i_temp = std::floor(((i1 * l3[0] / n3) + (v1[0] - x_shift)) / cell_size);
-				int j_temp = std::floor(((i1 * l3[1] / n3) + (v1[1] - y_shift)) / cell_size);
-				int k_temp = std::floor(((i1 * l3[2] / n3) + (v1[2] - z_shift)) / cell_size);
+					for (int i3 = 0; i3 < n3; i3++) {
+						float z = (i3 * range_vec[2] / n3) + min[2];
 
-				cells[i_temp][j_temp][k_temp].border = true;
-				cells[i_temp][j_temp][k_temp].normal = normal_to_side;				
+						glm::vec3 p = glm::vec3(x, y, z);
+						/*
+						glm::vec3 diff_vec = (p - v1);
+
+						float distance_from_plane = normal_to_side[0] * diff_vec[0] + normal_to_side[1] * diff_vec[1] + normal_to_side[2] * diff_vec[2];
+
+						if (abs(distance_from_plane) < 0.5f) {
+							counter2++;
+
+							glm::mat4x3 A = { v1, v2, v3, glm::vec3(1.f, 1.f, 1.f) };
+							glm::mat3x4 trans_A = glm::transpose(A);
+							
+
+							glm::vec3 w_vec = (glm::inverse(trans_A * A) * trans_A) * glm::vec4(p, 1.f);
+
+							if (w_vec.x >= 0.f && w_vec.x <= 1.f && w_vec.y >= 0.f && w_vec.y <= 1.f && w_vec.z >= 0.f && w_vec.z <= 1.f) {
+								int i_temp = std::floor((x - x_shift) / cell_size);
+								int j_temp = std::floor((y - y_shift) / cell_size);
+								int k_temp = std::floor((z - z_shift) / cell_size);
+								cells[i_temp][j_temp][k_temp].border = true;
+								cells[i_temp][j_temp][k_temp].normal = normal_to_side;
+								counter++;
+							}
+						}
+						*/
+
+						float V = glm::length((v1 - p) * (glm::cross(v2 - p, v3 - p))); //calculate volume of tetrahedron (v1, v2, v3, p)
+						if (V < 30) {
+							float A1 = 0.5f * glm::length(glm::cross(v1 - p, v2 - p));
+							float A2 = 0.5f * glm::length(glm::cross(v1 - p, v3 - p));
+							float A3 = 0.5f * glm::length(glm::cross(v2 - p, v3 - p));
+							float A123 = 0.5f * glm::length(glm::cross(v1 - v2, v1 - v3));
+							if (abs(A123 - (A1 + A2 + A3)) < 5) {
+								int i_temp = std::floor((x - x_shift) / cell_size);
+								int j_temp = std::floor((y - y_shift) / cell_size);
+								int k_temp = std::floor((z - z_shift) / cell_size);
+								cells[i_temp][j_temp][k_temp].border = true;
+								cells[i_temp][j_temp][k_temp].normal = normal_to_side;
+							}
+						}
+					}
+				}
 			}
 		}
 	}
@@ -212,7 +255,7 @@ void Simulation::simulate() {
 		return;
 	}
 	//std::cout << absorbed_photons  << " " <<  out_of_space_photons << std::endl;
-	#pragma omp parallel for
+	//#pragma omp parallel for
 	for	(int i = 0; i < PHOTONS_COUNT; i++) {
 		if (photons[i].absorbed || photons[i].out_of_space) {
 			continue;
@@ -250,7 +293,7 @@ void Simulation::simulate() {
 			}
 		}
 		else if (photons[i].inside_model) {
-			if (photons[i].scatter_counter == 0) {
+			if (photons[i].scatter_counter == 30) {
 				if (rand_num < material.n2 && rand_num > material.n1) { //absorption
 					photons[i].absorbed = true;
 					absorbed_photons++;
