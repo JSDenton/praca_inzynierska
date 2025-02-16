@@ -1,0 +1,14 @@
+﻿ALGORYTM:
+
+typy funkcji propagacji światła:
+- BRDF (bidirectional reflactance distribution function)
+- BTDF (bidirectional transmittance distribution function)
+Te funkcje określają jak się odbije (lub zostanie pochłonięte) światło padające na daną powierzchnię.
+Ich argumenty (oraz to co zwracają):
+- kąt nachylenia do normalnej powierzchni z którą się styka
+- kąt odbicia
+
+DO ZAPYTANIA:
+- czy symulacja ma być wyświetlana w czasie rzeczywistym, czy najpierw symulacja (właściwa), a potem tylko jej wizualizacja
+- czy nagrzewanie ma być "całości modelu", czy poszczególnych jego części (tzn. czy zaabsorbowany foton zwiększa temperaturę całego modelu, czy tylko tej części w której został zaabsorbowany)
+- jeżeli dyskretyzacja przestrzeni jest w komórkach, to 

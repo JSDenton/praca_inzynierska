@@ -1,3 +1,15 @@
-﻿  main.cpp
-LINK : warning LNK4098: defaultlib 'MSVCRT' conflicts with use of other libs; use /NODEFAULTLIB:library
+﻿  Simulation.cpp
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(210,20): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(211,20): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(212,20): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(230,20): warning C4018: '<': signed/unsigned mismatch
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(239,46): warning C4018: '>=': signed/unsigned mismatch
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(254,21): warning C4018: '<': signed/unsigned mismatch
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(265,11): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(266,11): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(267,11): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(363,10): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(364,10): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(365,10): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\Simulation.cpp(377,20): warning C4018: '<': signed/unsigned mismatch
   Engineer_paper.vcxproj -> C:\Users\jsiek\Desktop\Studia\praca_inzynierska\Engineer_paper\x64\Debug\Engineer_paper.exe

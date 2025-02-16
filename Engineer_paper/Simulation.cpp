@@ -16,8 +16,9 @@ Photon::Photon(glm::vec3 dimentions) {
 	location = glm::vec3(dimentions[0]/2, 85.f, dimentions[2]/2); //set starting point in the center (x,z) and max up
 	float rand1 = (float)rand();
 	float rand2 = (float)rand();
-	direction = glm::vec3((rand1 / RAND_MAX) - 0.5f, -1.0f, (rand2 / RAND_MAX) - 0.5f);
-	//direction = glm::vec3(0.1f, -1.0f, 0.1f);
+	//direction = glm::vec3((rand1 / RAND_MAX) - 0.5f, -1.0f, (rand2 / RAND_MAX) - 0.5f);
+	direction = glm::vec3((rand1 / RAND_MAX)/.4f - 0.12f, -1.0f, (rand2 / RAND_MAX) / .4f - 0.12f);
+	//direction = glm::vec3(0.0f, -1.0f, 0.0f); //for tests only
 	direction = glm::normalize(direction);
 	inside_model = false;
 	border_passed = 1;
@@ -27,29 +28,33 @@ Photon::Photon(glm::vec3 dimentions) {
 
 	Vertex vertex;
 	vertex.Position = location;
-	vertex.Normal = glm::vec3(0.0f, 0.0f, 1.0f);
+	vertex.Color = glm::vec3(0.0f, 0.0f, 1.0f);
 	std::vector<Vertex> vec;
 	vec.push_back(vertex);
 	std::vector<unsigned int>indices;
-	indices.push_back(0);
-	indices.push_back(0);
-	mesh = Mesh(vec, indices, true);
+	//indices.push_back(0);
+	//indices.push_back(0);
+	//mesh = Mesh(vec, indices, true);
+}
+
+Photon::Photon() {
+	Photon(glm::vec3(130.f, 0.f, 130.f));
 }
 
 void Photon::save() {
-	locations_historical.push_back(location);
 	Vertex vertex;
 	vertex.Position = location;
-	if(inside_model)
-		vertex.Normal = glm::vec3(1.0f, 0.0f, 0.0f);
+	if(inside_model || (border_passed%2==0 && border_passed % 4 != 0 && !reflected))
+		vertex.Color = glm::vec3(1.0f, 0.0f, 0.0f);
 	else
-		vertex.Normal = glm::vec3(0.0f, 0.0f, 1.0f);
+		vertex.Color = glm::vec3(0.0f, 0.0f, 1.0f);
 	mesh.update_mesh(vertex, mesh.indices.back());
 }
 
-Material::Material() { //reflection < absorbtion < transmittance = (0, n1, n2, 1)
-	n1 = 0.01f;
-	n2 = 0.6f;
+Material::Material() { //r; (0, n1) - transmittance; (n1-n2) - absorption; (n2, 1) - scattering
+	reflection_chance = 0.0f;
+	n1 = 0.9f;
+	n2 = 0.99f;
 };
 
 
@@ -174,13 +179,16 @@ Simulation::Simulation(Object3D model_in) {
 			}
 						
 			//creating space in which the triangle is in
-			short n1 = std::round(glm::length(max[0] - min[0]) / (cell_size));
-			short n2 = std::round(glm::length(max[1] - min[1]) / (cell_size));
-			short n3 = std::round(glm::length(max[2] - min[2]) / (cell_size));
+			/*int n1 = std::round((max[0] - min[0]) / (cell_size));
+			int n2 = std::round((max[1] - min[1]) / (cell_size));
+			int n3 = std::round((max[2] - min[2]) / (cell_size));*/
+			int n1 = 40;
+			int n2 = 40;
+			int n3 = 40;
 
 			glm::vec3 range_vec = max - min;
 
-//#pragma omp parallel for
+#pragma omp parallel for
 			for (int i1 = 0; i1 < n1; i1++) {
 				float x = (i1 * range_vec[0] / n1) + min[0];				
 
@@ -192,13 +200,13 @@ Simulation::Simulation(Object3D model_in) {
 
 						glm::vec3 p = glm::vec3(x, y, z);
 
-						float V = glm::length((v1 - p) * (glm::cross(v2 - p, v3 - p))); //calculate volume of tetrahedron (v1, v2, v3, p)
+						float V = glm::length((v1 - p)) * glm::length((glm::cross(v2 - p, v3 - p))); //calculate volume of tetrahedron (v1, v2, v3, p)
 						if (V < 500) {
 							float A1 = 0.5f * glm::length(glm::cross(v1 - p, v2 - p));
 							float A2 = 0.5f * glm::length(glm::cross(v1 - p, v3 - p));
 							float A3 = 0.5f * glm::length(glm::cross(v2 - p, v3 - p));
 							float A123 = 0.5f * glm::length(glm::cross(l1, l3));
-							if (abs(A123 - (A1 + A2 + A3)) < 10) {
+							if (abs(A123 - (A1 + A2 + A3)) < 10 || A1<0.5 || A2<0.5 || A3<0.5) {
 								int i_temp = std::floor((x - x_shift) / cell_size);
 								int j_temp = std::floor((y - y_shift) / cell_size);
 								int k_temp = std::floor((z - z_shift) / cell_size);
@@ -220,120 +228,148 @@ Simulation::Simulation(Object3D model_in) {
 	t1 = clock();
 
 	for (int i = 0; i < PHOTONS_COUNT; i++) {
-		photons.push_back(Photon(max_dimentions + min_dimentions));
+		photons[i] = Photon(max_dimentions + min_dimentions);
 	}
 	t2 = clock();
 	std::cout << "PHOTONS INIT END" << (float)(t2 - t1) / CLOCKS_PER_SEC << "sec" << std::endl;
 }
 
-void Simulation::simulate() {
+
+bool Simulation::simulate() {
 	if (absorbed_photons + out_of_space_photons >= PHOTONS_COUNT) {
 		//std::cout << "END_OF_SIMULATION" << std::endl;
-		return;
+		return false;
 	}
-	//std::cout << absorbed_photons  << " " <<  out_of_space_photons << std::endl;
-	//#pragma omp parallel for
-	for	(int i = 0; i < PHOTONS_COUNT; i++) {
+	//std::cout << absorbed_photons  +  out_of_space_photons << std::endl;
+
+	/*for (int i = 0; i < PHOTONS_COUNT; i++) {
 		if (photons[i].absorbed || photons[i].out_of_space) {
 			continue;
 		}
 		photons[i].save();
-		photons[i].location += photons[i].direction;
-
-		//check if new location is on the border of the model
-		//find index of cell photon is in
-		int i1 = std::floor((photons[i].location[0] - min_dimentions[0]) / cell_size);
-		int i2 = std::floor((photons[i].location[1] - min_dimentions[1]) / cell_size);
-		int i3 = std::floor((photons[i].location[2] - min_dimentions[2]) / cell_size);
-
-		//std::cout << i << ": " << photons[i].direction[0] << " " << photons[i].direction[1] << " " << photons[i].direction[2] << std::endl;
-
-		
-
-		if (i1 <= 0 || i2 <= 0 || i3 <= 0 || i1 >= CELLS_COUNT - 1 || i2 >= CELLS_COUNT - 1 || i3 >= CELLS_COUNT - 1) {
-			photons[i].out_of_space = true;
-			out_of_space_photons++;
-			continue;
-		}
-
-		//printf("%f, %f, %f = %d\n", cells[i1][i2][i3].location[0], cells[i1][i2][i3].location[1], cells[i1][i2][i3].location[2], cells[i1][i2][i3].border);
-		
-		float rand_num = (float)rand();
-		rand_num /= RAND_MAX;
-		glm::vec3 new_angle = photons[i].direction;
-
-
-		if (cells[i1][i2][i3].border) {			
-			if (rand_num < material.n1 && !photons[i].inside_model && photons[i].border_passed % 2 != 0 && !photons[i].reflected) { //reflection
-				new_angle = glm::normalize(glm::reflect(photons[i].direction, cells[i1][i2][i3].normal));
-				photons[i].reflected = true;
+	}	*/
+#pragma omp parallel
+	{
+#pragma omp for
+		for (int i = 0; i < PHOTONS_COUNT; i++) {
+			if (photons[i].absorbed || photons[i].out_of_space) {
+				continue;
 			}
-		}
-		else if (photons[i].inside_model) {
-			if (photons[i].scatter_counter == 0) {
-				if (rand_num < material.n2 && rand_num > material.n1) { //absorption
-					photons[i].absorbed = true;
-					absorbed_photons++;
+
+			//#pragma omp critical
+			
+			photons[i].location += photons[i].direction;
+
+			//check if new location is on the border of the model
+			//find index of cell photon is in
+			int i1 = std::floor((photons[i].location[0] - min_dimentions[0]) / cell_size);
+			int i2 = std::floor((photons[i].location[1] - min_dimentions[1]) / cell_size);
+			int i3 = std::floor((photons[i].location[2] - min_dimentions[2]) / cell_size);
+
+			if (i1 <= 0 || i2 <= 0 || i3 <= 0 || i1 >= CELLS_COUNT - 1 || i2 >= CELLS_COUNT - 1 || i3 >= CELLS_COUNT - 1) {
+				photons[i].out_of_space = true;
+#pragma omp atomic
+				out_of_space_photons++;
+				continue;
+			}
+
+			//printf("%f, %f, %f = %d\n", cells[i1][i2][i3].location[0], cells[i1][i2][i3].location[1], cells[i1][i2][i3].location[2], cells[i1][i2][i3].border);
+
+			float rand_num = (float)rand();
+			rand_num /= RAND_MAX;
+			glm::vec3 new_angle = photons[i].direction;
+
+
+			if (cells[i1][i2][i3].border) {
+				if (rand_num < material.reflection_chance && !photons[i].inside_model && photons[i].border_passed % 2 != 0 && !photons[i].reflected) { //reflection
+					new_angle = glm::reflect(photons[i].direction, cells[i1][i2][i3].normal);
+					photons[i].reflected = true;
 				}
-				else if (rand_num > material.n2) { //transmittance
-					float p1 = (float)rand();
-					float p2 = (float)rand();
-					float p3 = (float)rand();
-					p1 /= RAND_MAX;
-					p2 /= RAND_MAX;
-					p3 /= RAND_MAX;
-					//new_angle[1] /= new_angle.length();
-					new_angle = glm::normalize(glm::vec3(p1 - 0.5f, p2 - 0.5f, p3 - 0.5f));
-					//std::cout << new_angle[0] << " " << new_angle[1] << " " << new_angle[2] << std::endl;
+			}
+			else if (photons[i].inside_model && photons[i].border_passed % 2 != 0) {
+				if (photons[i].scatter_counter == 0) {
+					if (rand_num < material.n2 && rand_num > material.n1) { //absorption
+						photons[i].absorbed = true;
+						cells[i1][i2][i3].energy++;
+#pragma omp atomic
+						absorbed_photons++;
+					}
+					else if (rand_num > material.n2) { //scattering
+						float p1 = (float)rand();
+						float p2 = (float)rand();
+						float p3 = (float)rand();
+						p1 /= RAND_MAX;
+						p2 /= RAND_MAX;
+						p3 /= RAND_MAX;
+						new_angle = glm::vec3(p1 - 0.5f, p2 - 0.5f, p3 - 0.5f);
+					}
+					photons[i].scatter_counter = scatter_counter_const;
 				}
-				photons[i].scatter_counter = scatter_counter_const;
+				else {
+					photons[i].scatter_counter--;
+				}
+			}
+
+			photons[i].direction = (cell_size * 0.5f) * glm::normalize(new_angle);
+
+
+			//boundary of model
+			if (cells[i1][i2][i3].border) {
+				if (photons[i].border_passed % 2 == 1) { //getting on border
+					photons[i].border_passed++;
+				}
+				if (photons[i].border_margin != border_margin_const) {
+					photons[i].border_margin = border_margin_const;
+				}
+
+				//photons[i].inside_model = true;
 			}
 			else {
-				photons[i].scatter_counter--;
+				if (photons[i].border_passed % 3 == 0 && photons[i].reflected) { //case of reflection			
+					photons[i].reflected = false;
+					photons[i].border_passed = 1;
+				}
+				else if (photons[i].border_passed % 4 == 0) { //getting outside model
+					if (photons[i].border_margin == 0) {
+						photons[i].inside_model = false;
+						photons[i].border_passed++;
+						photons[i].border_margin = border_margin_const;
+					}
+					else {
+						photons[i].border_margin--;
+					}
+				}
+				else if (photons[i].border_passed % 2 == 0 && !photons[i].reflected) { //leaving border, but still being in the model
+					if (photons[i].border_margin == 0) {
+						photons[i].border_passed++;
+						photons[i].inside_model = true;
+						photons[i].border_margin = border_margin_const;
+					}
+					else {
+						photons[i].border_margin--;
+					}
+				}
+				//photons[i].inside_model = false;
 			}
 		}
+	}
+	return true;
+}
 
-		photons[i].direction = new_angle;
-
-
-		//boundary of model
-		if (cells[i1][i2][i3].border) {			
-			if (photons[i].border_passed % 2 == 1) { //getting on border
-				photons[i].border_passed++;
-			}
-			if (photons[i].border_margin != border_margin_const) {
-				photons[i].border_margin = border_margin_const;
-			}
-			
-			//photons[i].inside_model = true;
+void Simulation::detect_temperature(glm::vec3 axis, glm::vec3 axis_begin, std::vector<unsigned int> &energies) {
+	glm::vec3 point = axis_begin;
+	int i = 0;
+	while (true && i<CELLS_COUNT * 2) {
+		int i1 = std::floor((point.x - min_dimentions[0]) / cell_size);
+		int i2 = std::floor((point.y - min_dimentions[1]) / cell_size);
+		int i3 = std::floor((point.z - min_dimentions[2]) / cell_size);
+		if (i1 <= 0 || i2 <= 0 || i3 <= 0 || i1 >= CELLS_COUNT - 1 || i2 >= CELLS_COUNT - 1 || i3 >= CELLS_COUNT - 1) {
+			return;
 		}
-		else {
-			if (photons[i].border_passed % 3 == 0 && photons[i].reflected) { //case of reflection			
-				photons[i].reflected = false;
-				photons[i].border_passed = 1;
-			}
-			else if (photons[i].border_passed % 4 == 0 ) { //getting outside model
-				if (photons[i].border_margin == 0) {
-					photons[i].inside_model = false;
-					photons[i].border_passed++;
-					photons[i].border_margin = border_margin_const;
-				}
-				else {
-					photons[i].border_margin--;
-				}
-			}
-			else if (photons[i].border_passed % 2 == 0 && !photons[i].reflected ) { //leaving border, but still being in the model
-				if (photons[i].border_margin == 0) {
-					photons[i].border_passed++;
-					photons[i].inside_model = true;
-					photons[i].border_margin = border_margin_const;
-				}
-				else {
-					photons[i].border_margin--;
-				}
-			}
-			//photons[i].inside_model = false;
-		}	
+		energies.push_back(cells[i1][i2][i3].energy);
+		glm::vec3 a = (float)i * glm::normalize(axis) / cell_size;
+		point += a;
+		i++;
 	}
 }
 

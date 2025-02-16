@@ -47,18 +47,20 @@ void Mesh::bind_buffers() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     // vertex normals
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Color));
 
     glBindVertexArray(0);
 }
 
 void Mesh::draw() {
+    glDisable(GL_LINE_SMOOTH);
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
 void Mesh::draw_photons() {
+    glEnable(GL_LINE_SMOOTH);
     glBindVertexArray(VAO);
     glDrawElements(GL_LINES, indices.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
@@ -79,7 +81,7 @@ void Object3D::draw() {
 
 void Object3D::load_model(std::string path) {
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+    const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
@@ -119,12 +121,8 @@ Mesh Object3D::process_mesh(aiMesh* mesh, const aiScene* scene) {
         vector.y = mesh->mVertices[i].y;
         vector.z = mesh->mVertices[i].z;
         vertex.Position = vector;
-        
 
-        vector.x = mesh->mNormals[i].x;
-        vector.y = mesh->mNormals[i].y;
-        vector.z = mesh->mNormals[i].z;
-        vertex.Normal = glm::vec3(0.f, 1.0f, 0.f);//vector;
+        vertex.Color = glm::vec3(0.f, 1.0f, 0.f); //set the model to be green
 
         vertices.push_back(vertex);
     }

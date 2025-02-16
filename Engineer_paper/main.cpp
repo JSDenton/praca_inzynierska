@@ -136,8 +136,13 @@ int main() {
 
 	Simulation simulation(sphere);
 
-	
+	unsigned int counter = 0;
+	double fps_avg = 0;
 
+	bool continue_simulation = true;
+	int sim_counter = 0;
+
+	std::vector<unsigned int> temperatures = std::vector<unsigned int>();
 
 	//---------RENDER LOOP
 	while (!glfwWindowShouldClose(window))
@@ -162,15 +167,27 @@ int main() {
 		shaders.setMat4("model", model);
 		sphere.draw();
 
-		simulation.simulate();
-		//simulation.model.draw();
-		simulation.draw();
+		if (continue_simulation)
+			continue_simulation = simulation.simulate();
+		else if (sim_counter == 0) {
+			std::cout << "END OF SIMULATION - " << glfwGetTime() <<" sec - " << fps_avg/counter<< " FPS" << std::endl;
+			simulation.detect_temperature(glm::vec3(.0f, -1.0f, .0f), glm::vec3(.0f, 65.f, .0f), temperatures);
+			std::copy(temperatures.begin(), temperatures.end(), std::ostream_iterator<unsigned int>(std::cout, "; "));
+			sim_counter++;
+		}
+		
+		//simulation.draw();
 
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
+		
+		counter++;
+		double fps = (1.0 / deltaTime);
+		fps_avg += fps ;
+		std::string title = "Projekt Inzynierski. Current: " + std::to_string((int)std::round(fps)) + "FPS - Average: " + std::to_string((int)std::round(fps_avg / counter)) + " FPS";
+		glfwSetWindowTitle(window, title.c_str());
 
-		//end
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
