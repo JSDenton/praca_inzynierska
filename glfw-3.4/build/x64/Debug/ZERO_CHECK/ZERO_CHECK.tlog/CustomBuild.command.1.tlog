@@ -1,0 +1,10 @@
+^C:\USERS\JSIEK\DESKTOP\STUDIA\PRACA_INZYNIERSKA\GLFW-3.4\BUILD\CMAKEFILES\2D7C8A612AB2CB4BC152340286710CDB\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/jsiek/Desktop/Studia/praca_inzynierska/glfw-3.4 -BC:/Users/jsiek/Desktop/Studia/praca_inzynierska/glfw-3.4/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/jsiek/Desktop/Studia/praca_inzynierska/glfw-3.4/build/GLFW.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

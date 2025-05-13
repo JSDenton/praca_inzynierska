@@ -1,0 +1,4 @@
+﻿  Building Custom Rule C:/Users/jsiek/Desktop/Studia/praca_inzynierska/glfw-3.4/tests/CMakeLists.txt
+C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppCommon.targets(254,5): warning MSB8065: Custom build for item "C:\Users\jsiek\Desktop\Studia\praca_inzynierska\glfw-3.4\tests\CMakeLists.txt" succeeded, but specified output "c:\users\jsiek\desktop\studia\praca_inzynierska\glfw-3.4\build\tests\cmakefiles\generate.stamp" has not been created. This may cause incremental build to work incorrectly.
+  window.c
+  window.vcxproj -> C:\Users\jsiek\Desktop\Studia\praca_inzynierska\glfw-3.4\build\tests\Debug\window.exe

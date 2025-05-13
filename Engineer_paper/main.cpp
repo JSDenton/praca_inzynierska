@@ -1,4 +1,4 @@
-#define NUM_THREADS 24
+#define NUM_THREADS 36
 
 #include <iostream>
 #include <glad/glad.h>

@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <ctime>
 
-#define CELLS_COUNT 50 //the number of cells IN EVERY DIRECTION (x, y, z)
+#define CELLS_COUNT 10 //the number of cells IN EVERY DIRECTION (x, y, z)
 
 const unsigned int scatter_counter_const = 0, border_margin_const = 5;
 
@@ -41,7 +41,7 @@ struct Material { //  reflection; (0, n1) - transmittance; (n1-n2) - absorption;
 
 class Simulation
 {
-	const unsigned int PHOTONS_COUNT = 10000000;
+	const unsigned int PHOTONS_COUNT = 1;
 	const float CELL_SIZE_COEF = 1.6f; //1.x means that we want space covered by cells by x*10% above what model takes 
 
 	Photon* photons = new Photon[PHOTONS_COUNT];
